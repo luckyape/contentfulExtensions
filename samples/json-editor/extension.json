@@ -1,6 +1,6 @@
 {
-  "id": "jsonEditor",
-  "name": "JSON Editor",
+  "id": "GoogleMapsPathEditor",
+  "name": "Google Maps Path Editor",
   "srcdoc": "./index.html",
   "fieldTypes": ["Object"]
 }
