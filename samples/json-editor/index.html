@@ -3,17 +3,18 @@
 
 <head>
     <link rel="stylesheet" href="https://unpkg.com/contentful-ui-extensions-sdk@3/dist/cf-extension.css" />
+    <script type='text/javascript' src='https://maps.googleapis.com/maps/api/js?key=AIzaSyBiFqmjBFsPW3KkWiUXHPjODC64w74ZThk'></script>
     <script src="https://unpkg.com/contentful-ui-extensions-sdk@3/dist/cf-extension-api.js"></script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBiFqmjBFsPW3KkWiUXHPjODC64w74ZThk&callback=initMap"></script>
-
-
     <style type="text/css">
     body {
         margin: 0;
         font-family: sans-serif;
     }
+        #map {
+      width: 100%;
+      height: 500px;
+    }
 
- 
     </style>
 </head>
 
@@ -23,16 +24,7 @@
      * Custom JSON editor extension
      * Displays JSON object, validates on the fly and saves if its valid
      */
-        function initMap() {
-            map = new google.maps.Map(document.getElementById('map'), gmContext);
-        }
-        var gmContext = {
-            center: {
-                        lat: 49.2709,
-                        lng: 123.1621
-                    },
-            zoom: 14
-        }        
+
     + function() {
 
         if (typeof window.contentfulExtension === 'undefined') {
@@ -42,7 +34,16 @@
         if (typeof window.contentfulExtension === 'undefined') {
             throw new Error('Depends on contentful-extension-api.js');
         }
+        var map;
 
+
+        var gmContext = {
+            center: {
+                lat: 49.2709,
+                lng: 123.1621
+            },
+            zoom: 14
+        }
         var cfApi;
         var cm;
         var elements = {};
@@ -58,7 +59,6 @@
         var redoable = false;
 
         var gmKe = 'AIzaSyBiFqmjBFsPW3KkWiUXHPjODC64w74ZThk';
-        var map;
 
         var events = {
             initialize: function(resp) {
@@ -66,38 +66,45 @@
 
                 // Create elements
                 elements.map = createElement('div', { id: 'map' });
-            
+
+                console.log(elements);
                 // Initialize Code Mirror
-             /*   cm = CodeMirror(elements.editor, {
-                    matchBrackets: true,
-                    autoCloseBrackets: true,
-                    mode: { name: 'javascript', json: true },
-                    lineWrapping: true,
-                    viewportMargin: Infinity,
-                    indentUnit: 4,
-                    theme: 'default',
-                    lineNumbers: true
-                });
+                /*   cm = CodeMirror(elements.editor, {
+                       matchBrackets: true,
+                       autoCloseBrackets: true,
+                       mode: { name: 'javascript', json: true },
+                       lineWrapping: true,
+                       viewportMargin: Infinity,
+                       indentUnit: 4,
+                       theme: 'default',
+                       lineNumbers: true
+                   });
 
-                cm.setSize(editorSize.width, editorSize.height - 50);
+                   cm.setSize(editorSize.width, editorSize.height - 50);
 
-                // Watch for events
-                window.addEventListener('cfWidgetReady', events.extensionReady);
-                cm.on('change', events.textChanged);
-                elements.undo.addEventListener('click', events.undo);
-                elements.redo.addEventListener('click', events.redo);
+                   // Watch for events
+                   window.addEventListener('cfWidgetReady', events.extensionReady);
+                   cm.on('change', events.textChanged);
+                   elements.undo.addEventListener('click', events.undo);
+                   elements.redo.addEventListener('click', events.redo);
 
 
 
-                var val = cfApi.field.getValue();
-                cm.doc.setValue(beautify(val));
-                cm.clearHistory();
-                updateHistorySize();
-                // Update height
-                */
-                
+                   var val = cfApi.field.getValue();
+                   cm.doc.setValue(beautify(val));
+                   cm.clearHistory();
+                   updateHistorySize();
+                   // Update height
+                   */
+
 
                 cfApi.window.updateHeight(editorSize.height);
+                events.loadMap();
+
+            },
+            loadMap: function() {
+              console.info(elements, gmContext);
+                map = new google.maps.Map(elements.map , gmContext);
             }
 
             /*
@@ -126,6 +133,7 @@
             }
             parent = parent || document.body;
             parent.appendChild(e);
+
             return e;
         };
 
@@ -142,64 +150,65 @@
             }
             return true;
         };
-/*
-        // Takes an object and returns a pretty-printed JSON string
-        var beautify = function(obj) {
-            if (obj === null || obj === undefined) {
-                return '';
-            } else {
-                return JSON.stringify(obj, null, '\t');
-            }
-        };
-
-        // http://davidwalsh.name/javascript-debounce-function
-        var debounce = function(func, wait, immediate) {
-            var timeout;
-            return function() {
-                var context = this,
-                    args = arguments;
-                var later = function() {
-                    timeout = null;
-                    if (!immediate) func.apply(context, args);
+        /*
+                // Takes an object and returns a pretty-printed JSON string
+                var beautify = function(obj) {
+                    if (obj === null || obj === undefined) {
+                        return '';
+                    } else {
+                        return JSON.stringify(obj, null, '\t');
+                    }
                 };
-                var callNow = immediate && !timeout;
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-                if (callNow) func.apply(context, args);
-            };
-        };
 
-        var validateAndSave = debounce(function(str) {
-            if (str === '') {
-                updateValidationMessage(true); // don't show invalid message
-            } else if (isValidJson(str)) {
-                var val = JSON.parse(str);
-                updateValidationMessage(val);
-                cfApi.field.setValue(val);
-            } else {
-                updateValidationMessage(false)
-            }
-        }, 150);
+                // http://davidwalsh.name/javascript-debounce-function
+                var debounce = function(func, wait, immediate) {
+                    var timeout;
+                    return function() {
+                        var context = this,
+                            args = arguments;
+                        var later = function() {
+                            timeout = null;
+                            if (!immediate) func.apply(context, args);
+                        };
+                        var callNow = immediate && !timeout;
+                        clearTimeout(timeout);
+                        timeout = setTimeout(later, wait);
+                        if (callNow) func.apply(context, args);
+                    };
+                };
 
-        var updateHistorySize = function() {
-            if ((cm.historySize().undo > 0) === undoable) {
-                undoable = !undoable;
-                elements.undo.className = undoable ? 'undo' : 'undo active';
-            }
-            if ((cm.historySize().redo > 0) === redoable) {
-                redoable = !redoable;
-                elements.redo.className = redoable ? 'redo' : 'redo active';
-            }
-        };
+                var validateAndSave = debounce(function(str) {
+                    if (str === '') {
+                        updateValidationMessage(true); // don't show invalid message
+                    } else if (isValidJson(str)) {
+                        var val = JSON.parse(str);
+                        updateValidationMessage(val);
+                        cfApi.field.setValue(val);
+                    } else {
+                        updateValidationMessage(false)
+                    }
+                }, 150);
 
-        var updateValidationMessage = function(valid) {
-            if (valid !== inputValid) {
-                elements.info.innerHTML = valid ? '' : 'JSON is invalid';
-                inputValid = valid;
-            }
-        };
-*/
-        window.contentfulExtension.init(elements.initialize);
+                var updateHistorySize = function() {
+                    if ((cm.historySize().undo > 0) === undoable) {
+                        undoable = !undoable;
+                        elements.undo.className = undoable ? 'undo' : 'undo active';
+                    }
+                    if ((cm.historySize().redo > 0) === redoable) {
+                        redoable = !redoable;
+                        elements.redo.className = redoable ? 'redo' : 'redo active';
+                    }
+                };
+
+                var updateValidationMessage = function(valid) {
+                    if (valid !== inputValid) {
+                        elements.info.innerHTML = valid ? '' : 'JSON is invalid';
+                        inputValid = valid;
+                    }
+                };
+        */
+        window.contentfulExtension.init(events.initialize);
+
 
     }();
     </script>
