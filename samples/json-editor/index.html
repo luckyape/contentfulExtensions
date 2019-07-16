@@ -3,18 +3,29 @@
 
 <head>
     <link rel="stylesheet" href="https://unpkg.com/contentful-ui-extensions-sdk@3/dist/cf-extension.css" />
-    <script type='text/javascript' src='https://maps.googleapis.com/maps/api/js?key=AIzaSyBiFqmjBFsPW3KkWiUXHPjODC64w74ZThk'></script>
+    <script type='text/javascript' src='https://maps.googleapis.com/maps/api/js?key=AIzaSyBiFqmjBFsPW3KkWiUXHPjODC64w74ZThk&libraries=drawing'></script>
     <script src="https://unpkg.com/contentful-ui-extensions-sdk@3/dist/cf-extension-api.js"></script>
     <style type="text/css">
     body {
         margin: 0;
         font-family: sans-serif;
     }
-        #map {
-      width: 100%;
-      height: 500px;
+
+    #map {
+        width: 100%;
+        height: 500px;
     }
 
+    #map iframe {
+        position: absolute;
+        pointer-events: none;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    view raw
     </style>
 </head>
 
@@ -35,12 +46,15 @@
             throw new Error('Depends on contentful-extension-api.js');
         }
         var map;
+        var drawingManager;
+        var loopCoordinates;
+
 
 
         var gmContext = {
             center: {
                 lat: 49.2709,
-                lng: 123.1621
+                lng: -123.1621
             },
             zoom: 14
         }
@@ -50,7 +64,7 @@
 
         var editorSize = {
             width: 'auto',
-            height: 310
+            height: 500
         };
 
         // Keeps track of some states
@@ -99,12 +113,108 @@
 
 
                 cfApi.window.updateHeight(editorSize.height);
+
                 events.loadMap();
 
             },
             loadMap: function() {
-              console.info(elements, gmContext);
-                map = new google.maps.Map(elements.map , gmContext);
+                var deleteMenu = new DeleteMenu();
+                map = new google.maps.Map(elements.map, gmContext);
+                map.data.setControls(['Polygon']);
+                map.data.setStyle({
+                    editable: true,
+                    draggable: false,
+                    fillOpacity:0,
+                    strokeColor: 'green'                    
+                });
+                bindDataLayerListeners(map.data);
+
+                // map.data.addGeoJson(val)
+                loadPolygons(map)
+                //load saved data
+                //   loadPolygons(map);
+                /*                drawingManager = new google.maps.drawing.DrawingManager({
+                                    drawingMode: google.maps.drawing.OverlayType.MARKER,
+                                    drawingControl: true,
+                                    drawingControlOptions: {
+                                        position: google.maps.ControlPosition.TOP_CENTER,
+                                        drawingModes: ['polyline']
+                                    },
+                                    markerOptions: { icon: 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png' },
+                                    circleOptions: {
+                                        fillColor: '#33cc33',
+                                        fillOpacity: 1,
+                                        strokeWeight: 5,
+                                        clickable: false,
+                                        editable: true, 
+                                        zIndex: 1
+                                    }
+                                });
+                                drawingManager.setMap(map);*/
+                function bindDataLayerListeners(dataLayer) {
+                    dataLayer.addListener('addfeature', savePolygon);
+                    dataLayer.addListener('removefeature', savePolygon);
+                    dataLayer.addListener('setgeometry', savePolygon);
+                    dataLayer.addListener('rightclick', function(e) {
+
+
+
+                    console.info('savePolygon');
+                    map.data.toGeoJson(function(json) {
+                        cfApi.field.setValue(json);
+
+                    });
+
+
+                        console.info('rightClick', e);
+        
+                        //array to hold all LatLng in the new polygon, except the clicked one
+                        var newPolyPoints = [];
+
+                        //iterating over LatLng in features geometry
+                        e.feature.getGeometry().forEachLatLng(function(latlng) {
+
+                            //excluding the clicked one
+                            if (latlng.lat() == e.latLng.lat() && latlng.lng() == e.latLng.lng()) {
+                                console.log('This one will be removed: lat: ' + latlng.lat() + ', lng: ' + latlng.lng());
+                            } else {
+                                //keeping not matching LatLng
+                                newPolyPoints.push(latlng);
+                            }
+                        });
+
+                        //creating new linear ring
+                        debugger
+                        var newLinearRing = new google.maps.Data.LineString(newPolyPoints);
+                        //creating a new polygon out of the new linear ring
+                        var newPoly = new google.maps.Data.Polygon([newPolyPoints]);
+
+                        //apply the new polygon to the clicked feature
+                        e.feature.setGeometry(newPoly);
+                    });
+                }
+
+                function loadPolygons(map) {
+                    
+                    var data = cfApi.field.getValue();
+                    Object.assign(data, {features: [data.features[0]]});
+                    console.info('loadPolygon', data);
+                    map.data.forEach(function(f) {
+                        console.info(f);
+                        map.data.remove(f);
+                    });
+                    map.data.addGeoJson(data)
+                }
+
+
+
+                function savePolygon() {
+                    console.info('savePolygon');
+                    map.data.toGeoJson(function(json) {
+                        cfApi.field.setValue(json);
+
+                    });
+                }
             }
 
             /*
@@ -208,6 +318,89 @@
                 };
         */
         window.contentfulExtension.init(events.initialize);
+        /**
+         * A menu that lets a user delete a selected vertex of a path.
+         * @constructor
+         */
+        function DeleteMenu() {
+            this.div_ = document.createElement('div');
+            this.div_.className = 'delete-menu';
+            this.div_.innerHTML = 'Delete';
+
+            var menu = this;
+            google.maps.event.addDomListener(this.div_, 'click', function() {
+                menu.removeVertex();
+            });
+        }
+        DeleteMenu.prototype = new google.maps.OverlayView();
+
+        DeleteMenu.prototype.onAdd = function() {
+            var deleteMenu = this;
+            var map = this.getMap();
+            this.getPanes().floatPane.appendChild(this.div_);
+
+            // mousedown anywhere on the map except on the menu div will close the
+            // menu.
+            this.divListener_ = google.maps.event.addDomListener(map.getDiv(), 'mousedown', function(e) {
+                if (e.target != deleteMenu.div_) {
+                    deleteMenu.close();
+                }
+            }, true);
+        };
+
+        DeleteMenu.prototype.onRemove = function() {
+            google.maps.event.removeListener(this.divListener_);
+            this.div_.parentNode.removeChild(this.div_);
+
+            // clean up
+            this.set('position');
+            this.set('path');
+            this.set('vertex');
+        };
+
+        DeleteMenu.prototype.close = function() {
+            this.setMap(null);
+        };
+
+        DeleteMenu.prototype.draw = function() {
+            var position = this.get('position');
+            var projection = this.getProjection();
+
+            if (!position || !projection) {
+                return;
+            }
+
+            var point = projection.fromLatLngToDivPixel(position);
+            this.div_.style.top = point.y + 'px';
+            this.div_.style.left = point.x + 'px';
+        };
+
+        /**
+         * Opens the menu at a vertex of a given path.
+         */
+        DeleteMenu.prototype.open = function(map, path, vertex) {
+            this.set('position', path.getAt(vertex));
+            this.set('path', path);
+            this.set('vertex', vertex);
+            this.setMap(map);
+            this.draw();
+        };
+
+        /**
+         * Deletes the vertex from the path.
+         */
+        DeleteMenu.prototype.removeVertex = function() {
+            var path = this.get('path');
+            var vertex = this.get('vertex');
+
+            if (!path || vertex == undefined) {
+                this.close();
+                return;
+            }
+
+            path.removeAt(vertex);
+            this.close();
+        };
 
 
     }();
